@@ -1,14 +1,26 @@
 version: '3'
 
 services:
-  python3:
+  wsgi:
     build: ./python3
-    command: bash -c "supervisord && uwsgi --socket :8001 --module project.wsgi --py-autoreload 1"
+    command: uwsgi --socket :8001 --module project.wsgi --py-autoreload 1
     volumes:
       - ./src:/src
       - ./src/static:/src/static
     expose:
       - "8001"
+    environment:
+      PYTHONPATH: /src
+    env_file:
+      - .env
+
+  asgi:
+    build: ./python3
+    command: daphne -b 0.0.0.0 -p 8002 project.asgi:application
+    volumes:
+      - ./src:/src
+      - ./src/static:/src/static
+    expose:
       - "8002"
     environment:
       PYTHONPATH: /src
@@ -24,13 +36,13 @@ services:
       - ./nginx/uwsgi_params:/etc/nginx/uwsgi_params
       - ./src/static:/src/static
     depends_on:
-      - python3
+      - wsgi
 
   redis:
     build:
       context: ./redis
     ports:
-    - ${REDIS_PORT}:6379
+      - ${REDIS_PORT}:6379
     volumes:
       - redis_data:/redis_data
     restart: always
